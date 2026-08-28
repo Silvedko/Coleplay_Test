@@ -1,0 +1,23 @@
+{
+    "name": "Game.Composition",
+    "rootNamespace": "Game.Composition",
+    "references": [
+        "Game.Core",
+        "Game.Infrastructure",
+        "Game.Presentation",
+        "UniTask",
+        "Unity.Addressables",
+        "Unity.ResourceManager",
+        "UnityEngine.UI",
+        "Unity.TextMeshPro"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

@@ -14,9 +14,7 @@ namespace Game.Core
         {
             Value = value ?? throw new ArgumentNullException(nameof(value));
         }
-
-        public bool IsValid => Value != null;
-
+        
         public bool Equals(AssetKey other) => Equals(Value, other.Value);
 
         public override bool Equals(object obj) => obj is AssetKey other && Equals(other);
