@@ -27,9 +27,15 @@ MonoBehaviour:
     m_LabelString: round-image
   _fallbackTexture:
     m_AssetGUID: 2825d54053be00549a3e8ea4075b46bd
-    m_SubObjectName: 
-    m_SubObjectType: 
-    m_SubObjectGUID: 
+    m_SubObjectName:
+    m_SubObjectType:
+    m_SubObjectGUID:
+    m_EditorAssetChanged: 0
+  _settingsScreenPrefab:
+    m_AssetGUID: 10722234a9f675d4eba6fc739b24130f
+    m_SubObjectName:
+    m_SubObjectType:
+    m_SubObjectGUID:
     m_EditorAssetChanged: 0
   _artificialDelayMilliseconds: 0
   _forceFailureEveryNthRound: 0

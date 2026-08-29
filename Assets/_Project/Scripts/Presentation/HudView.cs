@@ -22,6 +22,16 @@ namespace Game.Presentation
         [SerializeField] private float _missVisibleSeconds = 1f;
 
         private CancellationTokenSource _missCts;
+        private GameSettings _settings;
+
+        /// <summary>The design-time default, also the seed handed to <see cref="GameSettings"/> at boot.</summary>
+        public float MissVisibleSeconds => _missVisibleSeconds;
+
+        /// <summary>Lets the miss line honour the duration the player picks in the settings window.</summary>
+        public void BindSettings(GameSettings settings)
+        {
+            _settings = settings;
+        }
 
         public void SetStatus(GameStatus status)
         {
@@ -60,9 +70,11 @@ namespace Game.Presentation
         {
             _missLabel.text = MissText;
 
+            var visibleSeconds = _settings != null ? _settings.MissVisibleSeconds : _missVisibleSeconds;
+
             try
             {
-                await UniTask.Delay(TimeSpan.FromSeconds(_missVisibleSeconds), cancellationToken: ct);
+                await UniTask.Delay(TimeSpan.FromSeconds(visibleSeconds), cancellationToken: ct);
             }
             catch (OperationCanceledException)
             {

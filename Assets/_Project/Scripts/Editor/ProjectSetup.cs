@@ -25,6 +25,7 @@ namespace Game.Editor
         private const string ScenePath = ProjectRoot + "/Scenes/Main.unity";
         private const string SpherePrefabPath = ProjectRoot + "/Prefabs/Target_Sphere.prefab";
         private const string CubePrefabPath = ProjectRoot + "/Prefabs/Target_Cube.prefab";
+        private const string SettingsScreenPrefabPath = ProjectRoot + "/Prefabs/SettingsScreen.prefab";
         private const string FallbackTexturePath = ProjectRoot + "/Art/Textures/Fallback/T_Fallback.png";
         private const string RoundTexturesFolder = ProjectRoot + "/Art/Textures/Rounds";
         private const string ConfigPath = ProjectRoot + "/Settings/GameConfig.asset";
@@ -48,6 +49,7 @@ namespace Game.Editor
 
             MarkAddressable(settings, localGroup, SpherePrefabPath, "Target_Sphere");
             MarkAddressable(settings, localGroup, CubePrefabPath, "Target_Cube");
+            MarkAddressable(settings, localGroup, SettingsScreenPrefabPath, "SettingsScreen");
             MarkAddressable(settings, localGroup, FallbackTexturePath, "T_Fallback");
 
             var roundTextures = Directory.GetFiles(RoundTexturesFolder, "*.png");
@@ -166,6 +168,7 @@ namespace Game.Editor
                 .FindPropertyRelative("m_LabelString").stringValue = RoundImageLabel;
 
             SetAssetReference(serialized.FindProperty("_fallbackTexture"), FallbackTexturePath);
+            SetAssetReference(serialized.FindProperty("_settingsScreenPrefab"), SettingsScreenPrefabPath);
 
             serialized.ApplyModifiedPropertiesWithoutUndo();
             EditorUtility.SetDirty(config);
@@ -195,6 +198,9 @@ namespace Game.Editor
             {
                 hud = BuildHud();
             }
+
+            // The settings window is an Addressable prefab (SettingsScreen), instantiated at boot by
+            // GameBootstrap - nothing to place in the scene.
 
             var bootstrap = Object.FindFirstObjectByType<GameBootstrap>();
             if (bootstrap == null)
@@ -227,8 +233,9 @@ namespace Game.Editor
                 new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(40f, -40f),
                 TextAlignmentOptions.TopLeft, 42f);
 
+            // Sits below the runtime "Settings" button in the top-right corner (see SettingsView).
             var score = CreateLabel(canvasObject.transform, "ScoreLabel",
-                new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(-40f, -40f),
+                new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(-40f, -104f),
                 TextAlignmentOptions.TopRight, 42f);
 
             var miss = CreateLabel(canvasObject.transform, "MissLabel",

@@ -23,6 +23,10 @@ namespace Game.Composition
         [SerializeField] private AssetLabelReference _imagesLabel;
         [SerializeField] private AssetReferenceTexture2D _fallbackTexture;
 
+        [Header("Settings window")]
+        [Tooltip("Instantiated once at boot; its SettingsView is bound to the runtime GameSettings.")]
+        [SerializeField] private AssetReferenceGameObject _settingsScreenPrefab;
+
         [Header("Demo aids (leave at zero for normal play)")]
         [Tooltip("Pads every load so the loading state is long enough to see.")]
         [SerializeField, Min(0)] private int _artificialDelayMilliseconds;
@@ -88,6 +92,19 @@ namespace Game.Composition
                 }
 
                 return new AssetKey(_fallbackTexture.RuntimeKey);
+            }
+        }
+
+        public AssetKey SettingsScreenKey
+        {
+            get
+            {
+                if (_settingsScreenPrefab == null || !_settingsScreenPrefab.RuntimeKeyIsValid())
+                {
+                    throw new InvalidOperationException(name + ": the settings window prefab is not assigned.");
+                }
+
+                return new AssetKey(_settingsScreenPrefab.RuntimeKey);
             }
         }
 
