@@ -1,167 +1,67 @@
 using System;
-using System.Threading;
-using Cysharp.Threading.Tasks;
 using UnityEngine;
 
 namespace Game.Core
 {
     /// <summary>
-    /// Owns the round loop. One round is one asynchronous texture load applied to the target object.
+    /// The rules of the game. Every object on the board looks the same and one of them is the hidden
+    /// target; finding it is the whole game. A correct tap scores, moves the target to another object
+    /// and starts a round, whose image then lands on every object at once - so the board the player
+    /// searches next wears the picture they just won.
     ///
-    /// A tap on the object starts the next round immediately, even while the previous load is still
-    /// in flight; only a tap on an image the player has seen scores. The previous round is cancelled
-    /// and guarded twice - by its cancellation token and by a round number checked after every await
-    /// - so a stale result can never overwrite a newer one.
+    /// A tap on any other object is a miss: it gives feedback on that object and changes nothing, the
+    /// target included, or the hidden object could never be found.
     /// </summary>
-    public sealed class GameSession : IDisposable
+    public sealed class GameSession
     {
-        private readonly IImageSource _images;
         private readonly ITargetHitTester _hitTester;
+        private readonly TargetBoard _board;
+        private readonly RoundLoop _rounds;
         private readonly IHudView _hud;
         private readonly ScoreCounter _score;
 
-        private readonly CancellationTokenSource _lifetime = new CancellationTokenSource();
-
-        private CancellationTokenSource _roundCts;
-        private IAssetHandle<Texture2D> _current;
-        private ITargetView _target;
-        private int _roundId;
-        private bool _imageOnTarget;
-        private bool _disposed;
-
-        public GameSession(IImageSource images, ITargetHitTester hitTester, IHudView hud, ScoreCounter score)
+        public GameSession(
+            ITargetHitTester hitTester, TargetBoard board, RoundLoop rounds, IHudView hud, ScoreCounter score)
         {
-            _images = images ?? throw new ArgumentNullException(nameof(images));
             _hitTester = hitTester ?? throw new ArgumentNullException(nameof(hitTester));
+            _board = board ?? throw new ArgumentNullException(nameof(board));
+            _rounds = rounds ?? throw new ArgumentNullException(nameof(rounds));
             _hud = hud ?? throw new ArgumentNullException(nameof(hud));
             _score = score ?? throw new ArgumentNullException(nameof(score));
         }
 
-        /// <summary>Connects the object spawned at start-up. Called once, before the first round.</summary>
-        public void Attach(ITargetView target)
-        {
-            _target = target ?? throw new ArgumentNullException(nameof(target));
-        }
-
+        /// <summary>
+        /// One round is one search. While the next image is on its way the board is out of play: the
+        /// target has already moved, so a tap accepted now would be scored against a picture the
+        /// player has not been shown yet - and enough fast taps would keep cancelling the load the
+        /// board is waiting for. The status label already says why nothing is happening.
+        /// </summary>
         public void OnTapped(Vector2 screenPosition)
         {
-            if (_disposed || _target == null)
+            if (_rounds.IsLoading)
             {
                 return;
             }
 
-            if (_hitTester.IsHit(screenPosition))
+            if (!_hitTester.TryGetTarget(screenPosition, out var tapped))
             {
-                // A point is for an image the player has actually seen. A tap that lands while the
-                // round is still loading scores nothing - it only restarts the round, which is what
-                // keeps the cancellation path reachable in normal play.
-                if (_imageOnTarget)
-                {
-                    _hud.SetScore(_score.Increment());
-                }
-
-                StartNextRound();
-            }
-            else
-            {
-                _target.PlayErrorFeedback();
                 _hud.ShowMiss();
-            }
-        }
-
-        /// <summary>Cancels the round in flight, if any, and starts a new one.</summary>
-        public void StartNextRound()
-        {
-            if (_disposed)
-            {
                 return;
             }
 
-            // The image on the object belongs to the round that is being replaced, and it has already
-            // been paid for by the tap that ended it.
-            _imageOnTarget = false;
-
-            ReplaceRoundToken();
-            RunRoundAsync(++_roundId, _roundCts.Token).Forget();
-        }
-
-        private async UniTaskVoid RunRoundAsync(int roundId, CancellationToken ct)
-        {
-            _hud.SetStatus(GameStatus.Loading);
-
-            RoundImage image = default;
-            try
+            if (!_board.IsTarget(tapped))
             {
-                image = await _images.NextAsync(ct);
-
-                // Second line of defence: this continuation may have been queued before the cancellation.
-                // _target == null guards a caller that starts a round before Attach - none exists today,
-                // but StartNextRound is public and OnTapped already guards the same thing.
-                if (_disposed || ct.IsCancellationRequested || roundId != _roundId || _target == null)
-                {
-                    image.Handle?.Dispose();
-                    return;
-                }
-
-                _target.SetTexture(image.Handle.Value);
-                _imageOnTarget = true;
-
-                // Release the previous texture only once the new one is on screen.
-                _current?.Dispose();
-                _current = image.Handle;
-
-                _hud.SetStatus(image.IsFallback ? GameStatus.Fallback : GameStatus.Ready);
-            }
-            catch (OperationCanceledException)
-            {
-                // Normal path: a newer round took over. The provider has already released the handle.
-                image.Handle?.Dispose();
-            }
-            catch (Exception exception)
-            {
-                image.Handle?.Dispose();
-                Debug.LogException(exception);
-
-                // The object keeps its previous texture and the game stays playable.
-                if (!_disposed && roundId == _roundId)
-                {
-                    _hud.SetStatus(GameStatus.Ready);
-                }
-            }
-        }
-
-        /// <summary>
-        /// Cancel, then dispose right away - safe because <see cref="IImageSource"/> contracts
-        /// implementations to observe cancellation by polling, never by registering a callback that
-        /// could fire after the source is gone. Disposing here also matters on its own: this is a
-        /// linked source, and skipping it would leak a registration on _lifetime for every round played.
-        /// </summary>
-        private void ReplaceRoundToken()
-        {
-            if (_roundCts != null)
-            {
-                _roundCts.Cancel();
-                _roundCts.Dispose();
-            }
-
-            _roundCts = CancellationTokenSource.CreateLinkedTokenSource(_lifetime.Token);
-        }
-
-        public void Dispose()
-        {
-            if (_disposed)
-            {
+                tapped.PlayErrorFeedback();
+                _hud.ShowMiss();
                 return;
             }
 
-            _disposed = true;
+            _hud.SetScore(_score.Increment());
 
-            _lifetime.Cancel();
-            _roundCts?.Dispose();
-            _lifetime.Dispose();
-
-            _current?.Dispose();
-            _current = null;
+            // Re-hidden right away rather than when the image lands: the next search is then ready
+            // the instant the board is back in play, and this stays the only place the target moves.
+            _board.MoveTarget();
+            _rounds.StartNext();
         }
     }
 }

@@ -23,6 +23,9 @@ namespace Game.Composition
         [SerializeField] private HudView _hud;
         [SerializeField] private Camera _camera;
 
+        [Tooltip("Parent for every spawned target. Optional - the pool makes its own if this is empty.")]
+        [SerializeField] private Transform _poolRoot;
+
         private readonly List<IDisposable> _disposables = new List<IDisposable>();
 
         private CancellationTokenSource _lifetime;
@@ -55,7 +58,7 @@ namespace Game.Composition
                 _settingsView.OpenChanged -= OnSettingsOpen;
             }
 
-            // Reverse order: the session releases its texture through the provider,
+            // Reverse order: the round loop releases its texture through the provider,
             // so the provider has to outlive it.
             for (var i = _disposables.Count - 1; i >= 0; i--)
             {
@@ -82,31 +85,31 @@ namespace Game.Composition
                 };
 
                 var assets = Track(new AddressablesAssetProvider());
-                var spawner = Track(new TargetSpawner(assets, _config.TargetPrefabKeys));
+                var pool = Track(new TargetPool(assets, _config.TargetPrefabKeys, _camera));
                 var images = Track(new ImageRepository(BuildImagePicker(), BuildImageLoader(assets, settings), _config.FallbackKey));
                 var hitTester = new CameraRaycastHitTester(_camera);
                 var score = new ScoreCounter();
 
                 _tap = Track(new InputSystemTapSource());
-                _session = Track(new GameSession(images, hitTester, _hud, score));
 
                 _hud.SetScore(0);
                 _hud.SetStatus(GameStatus.Loading);
 
-                // Both are loaded once per session and released when this component is destroyed.
-                var instance = await spawner.SpawnAsync(null, ct);
-                instance.transform.Rotate(Vector3.up, 90);
-                await images.PreloadFallbackAsync(ct);
+                // Both are brought in once per session and released when this component is destroyed.
+                // The fallback doubles as the image the board opens on: it is local, so the first
+                // frame never waits on the network, and it is already loaded for its own sake.
+                var targets = await pool.SpawnAsync(_config.MaxTargets, _config.SpawnDistance, _poolRoot, ct);
+                var fallbackTexture = await images.PreloadFallbackAsync(ct);
 
-                var target = instance.GetComponentInChildren<TargetView>();
-                if (target == null)
-                {
-                    throw new InvalidOperationException(
-                        "The target prefab '" + instance.name + "' has no TargetView component.");
-                }
+                // The game itself is composed only once the board exists, so nothing is ever handed
+                // out half-built and no object needs a second initialisation step.
+                var board = new TargetBoard(targets);
+                board.Dress(fallbackTexture);
 
-                hitTester.Target = target.Collider;
-                _session.Attach(target);
+                var rounds = Track(new RoundLoop(images, _hud, board.Dress));
+                _session = new GameSession(hitTester, board, rounds, _hud, score);
+
+                _hud.SetStatus(GameStatus.Ready);
 
                 _tap.Tapped += OnPointerTapped;
                 _tap.Enable();
@@ -125,7 +128,8 @@ namespace Game.Composition
                 _settingsView.OpenChanged += OnSettingsOpen;
                 _hud.BindSettings(settings);
 
-                _session.StartNextRound();
+                // No round is started here on purpose: the board opens on the default image, and the
+                // first load is earned by finding the hidden target.
             }
             catch (OperationCanceledException)
             {

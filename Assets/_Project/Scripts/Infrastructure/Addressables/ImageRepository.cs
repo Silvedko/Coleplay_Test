@@ -29,14 +29,18 @@ namespace Game.Infrastructure
             _fallbackKey = fallbackKey;
         }
 
-        public async UniTask PreloadFallbackAsync(CancellationToken ct)
+        /// <summary>
+        /// Loads the fallback once and returns it, so the composition root can also use it as the
+        /// image the board wears before the first round is won - one asset, one handle, one owner.
+        /// </summary>
+        public async UniTask<Texture2D> PreloadFallbackAsync(CancellationToken ct)
         {
-            if (_fallback != null || _disposed)
+            if (_fallback == null && !_disposed)
             {
-                return;
+                _fallback = await _loader.LoadAsync<Texture2D>(_fallbackKey, ct);
             }
 
-            _fallback = await _loader.LoadAsync<Texture2D>(_fallbackKey, ct);
+            return _fallback?.Value;
         }
 
         public async UniTask<RoundImage> NextAsync(CancellationToken ct)
