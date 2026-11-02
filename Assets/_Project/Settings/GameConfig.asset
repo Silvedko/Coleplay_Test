@@ -23,7 +23,7 @@ MonoBehaviour:
     m_SubObjectType: 
     m_SubObjectGUID: 
     m_EditorAssetChanged: 0
-  _maxTargets: 2
+  _maxTargets: 5
   _imagesLabel:
     m_LabelString: round-image
   _fallbackTexture:

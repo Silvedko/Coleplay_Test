@@ -16,6 +16,7 @@ MonoBehaviour:
   m_currentHash:
     serializedVersion: 2
     Hash: 00000000000000000000000000000000
+  m_ExtractTypeTreeData: 0
   m_OptimizeCatalogSize: 0
   m_BuildRemoteCatalog: 1
   m_CatalogRequestsTimeout: 0
@@ -42,6 +43,7 @@ MonoBehaviour:
   m_BundleRedirectLimit: -1
   m_SharedBundleSettings: 0
   m_SharedBundleSettingsCustomGroupIndex: 0
+  m_simulatedLoadDelay: 0.1
   m_ContiguousBundles: 1
   m_StripUnityVersionFromBundleBuild: 0
   m_DisableVisibleSubAssetRepresentations: 0
@@ -54,7 +56,7 @@ MonoBehaviour:
     m_Id: b8e0ad9c84176b64ea5e379505e038cc
   m_RemoteCatalogLoadPath:
     m_Id: bfb634b40088ac740a676c063b545cd7
-  m_ContentStateBuildPathProfileVariableName: 
+  m_ContentStateBuildPathProfileVariableName: <default settings path>
   m_CustomContentStateBuildPath: 
   m_ContentStateBuildPath: 
   m_BuildAddressablesWithPlayerBuild: 0
@@ -82,6 +84,10 @@ MonoBehaviour:
         m_Value: 'ServerData/[BuildTarget]'
       - m_Id: bfb634b40088ac740a676c063b545cd7
         m_Value: 'https://silvedko.github.io/Coleplay_Test/[BuildTarget]'
+      - m_Id: ba49cf2f941c4ddabafdc7aa55c4446c
+        m_Value: '[Remote.BuildPath]/[Game.Editor.RemoteContentVersion.Current]'
+      - m_Id: d4b405a1e7274fb7bd91702dd79444c4
+        m_Value: '[Remote.LoadPath]/[Game.Editor.RemoteContentVersion.Current]'
     m_ProfileEntryNames:
     - m_Id: 26514f3e7bb8da942be324038a9d3ead
       m_Name: BuildTarget
@@ -97,6 +103,12 @@ MonoBehaviour:
       m_InlineUsage: 0
     - m_Id: bfb634b40088ac740a676c063b545cd7
       m_Name: Remote.LoadPath
+      m_InlineUsage: 0
+    - m_Id: ba49cf2f941c4ddabafdc7aa55c4446c
+      m_Name: RemoteBundles.BuildPath
+      m_InlineUsage: 0
+    - m_Id: d4b405a1e7274fb7bd91702dd79444c4
+      m_Name: RemoteBundles.LoadPath
       m_InlineUsage: 0
     m_ProfileVersion: 1
   m_LabelTable:

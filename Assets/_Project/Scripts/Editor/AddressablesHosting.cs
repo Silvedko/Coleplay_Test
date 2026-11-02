@@ -12,12 +12,21 @@ namespace Game.Editor
     ///
     /// Remote mode also flips the play mode script to "Use Existing Build", because playing against
     /// the asset database would silently bypass the network and prove nothing.
+    ///
+    /// The remote catalog stays at a fixed URL, while each build's bundles go to their own folder
+    /// (see <see cref="RemoteContentVersion"/>). Publish the new folder next to the old ones: a
+    /// stale catalog served from a CDN cache then still points at bundles that exist.
     /// </summary>
     public static class AddressablesHosting
     {
         private const string RemoteGroupName = "RoundImages_Remote";
         private const string RemoteBuildPathValue = "ServerData/[BuildTarget]";
         private const string RemoteLoadPathValue = "https://silvedko.github.io/Coleplay_Test/[BuildTarget]";
+
+        private const string BundleBuildPathVariable = "RemoteBundles.BuildPath";
+        private const string BundleLoadPathVariable = "RemoteBundles.LoadPath";
+        private const string BundleBuildPathValue = "[Remote.BuildPath]/" + RemoteContentVersion.ProfileToken;
+        private const string BundleLoadPathValue = "[Remote.LoadPath]/" + RemoteContentVersion.ProfileToken;
 
         [MenuItem("Tools/Coleplay/Addressables/Use Remote Hosting")]
         public static void UseRemoteHosting()
@@ -34,10 +43,10 @@ namespace Game.Editor
 
             profiles.SetValue(profileId, AddressableAssetSettings.kRemoteBuildPath, RemoteBuildPathValue);
             profiles.SetValue(profileId, AddressableAssetSettings.kRemoteLoadPath, RemoteLoadPathValue);
+            SetOrCreateValue(profiles, profileId, BundleBuildPathVariable, BundleBuildPathValue);
+            SetOrCreateValue(profiles, profileId, BundleLoadPathVariable, BundleLoadPathValue);
 
-            SetGroupPaths(settings, RemoteGroupName,
-                AddressableAssetSettings.kRemoteBuildPath,
-                AddressableAssetSettings.kRemoteLoadPath);
+            SetGroupPaths(settings, RemoteGroupName, BundleBuildPathVariable, BundleLoadPathVariable);
 
             // Without a remote catalog the player would keep reading the one baked into the build.
             settings.BuildRemoteCatalog = true;
@@ -51,6 +60,7 @@ namespace Game.Editor
             Debug.Log("Addressables switched to remote hosting."
                       + "\n  RemoteBuildPath = " + profiles.GetValueByName(profileId, AddressableAssetSettings.kRemoteBuildPath)
                       + "\n  RemoteLoadPath  = " + profiles.GetValueByName(profileId, AddressableAssetSettings.kRemoteLoadPath)
+                      + "\n  Bundles load from " + profiles.EvaluateString(profileId, BundleLoadPathValue)
                       + "\n  Remote catalog  = " + settings.BuildRemoteCatalog
                       + "\nNow run Addressables Groups > Build > New Build > Default Build Script and publish ServerData.");
         }
@@ -111,6 +121,17 @@ namespace Game.Editor
                              + profiles.GetProfileName(profileId) + "'.");
 
             return profileId;
+        }
+
+        private static void SetOrCreateValue(
+            AddressableAssetProfileSettings profiles, string profileId, string variableName, string value)
+        {
+            if (profiles.GetProfileDataByName(variableName) == null)
+            {
+                profiles.CreateValue(variableName, value);
+            }
+
+            profiles.SetValue(profileId, variableName, value);
         }
 
         private static void SetGroupPaths(
