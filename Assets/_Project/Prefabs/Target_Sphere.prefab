@@ -125,7 +125,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d2d33711081fbdb44b2cc1247f617e22, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Game.Presentation::Game.Presentation.TargetView
-  _renderer: {fileID: 0}
-  _collider: {fileID: 0}
+  _renderer: {fileID: 3421756332854050182}
   _errorColor: {r: 0.85, g: 0.19, b: 0.15, a: 1}
   _errorFlashSeconds: 0.35

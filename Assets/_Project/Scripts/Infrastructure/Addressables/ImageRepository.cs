@@ -30,17 +30,31 @@ namespace Game.Infrastructure
         }
 
         /// <summary>
-        /// Loads the fallback once and returns it, so the composition root can also use it as the
-        /// image the board wears before the first round is won - one asset, one handle, one owner.
+        /// Loads the fallback once and returns it. The composition root also uses it as the
+        /// board's first image, so the texture has a single handle and a single owner.
         /// </summary>
         public async UniTask<Texture2D> PreloadFallbackAsync(CancellationToken ct)
         {
-            if (_fallback == null && !_disposed)
+            if (_disposed)
             {
-                _fallback = await _loader.LoadAsync<Texture2D>(_fallbackKey, ct);
+                throw new ObjectDisposedException(nameof(ImageRepository));
             }
 
-            return _fallback?.Value;
+            if (_fallback == null)
+            {
+                var loaded = await _loader.LoadAsync<Texture2D>(_fallbackKey, ct);
+
+                // Disposed while loading: nobody would release this handle later.
+                if (_disposed)
+                {
+                    loaded.Dispose();
+                    throw new ObjectDisposedException(nameof(ImageRepository));
+                }
+
+                _fallback = loaded;
+            }
+
+            return _fallback.Value;
         }
 
         public async UniTask<RoundImage> NextAsync(CancellationToken ct)

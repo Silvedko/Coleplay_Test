@@ -4,24 +4,20 @@ using UnityEngine;
 namespace Game.Core
 {
     /// <summary>
-    /// The rules of the game. Every object on the board looks the same and one of them is the hidden
-    /// target; finding it is the whole game. A correct tap scores, moves the target to another object
-    /// and starts a round, whose image then lands on every object at once - so the board the player
-    /// searches next wears the picture they just won.
-    ///
-    /// A tap on any other object is a miss: it gives feedback on that object and changes nothing, the
-    /// target included, or the hidden object could never be found.
+    /// The rules of the game. One object on the board is the hidden target. Tapping it scores,
+    /// hides the target under another object and starts the next round. Tapping any other object
+    /// is a miss and changes nothing.
     /// </summary>
     public sealed class GameSession
     {
         private readonly ITargetHitTester _hitTester;
-        private readonly TargetBoard _board;
-        private readonly RoundLoop _rounds;
+        private readonly ITargetBoard _board;
+        private readonly IRoundLoop _rounds;
         private readonly IHudView _hud;
         private readonly ScoreCounter _score;
 
         public GameSession(
-            ITargetHitTester hitTester, TargetBoard board, RoundLoop rounds, IHudView hud, ScoreCounter score)
+            ITargetHitTester hitTester, ITargetBoard board, IRoundLoop rounds, IHudView hud, ScoreCounter score)
         {
             _hitTester = hitTester ?? throw new ArgumentNullException(nameof(hitTester));
             _board = board ?? throw new ArgumentNullException(nameof(board));
@@ -30,14 +26,10 @@ namespace Game.Core
             _score = score ?? throw new ArgumentNullException(nameof(score));
         }
 
-        /// <summary>
-        /// One round is one search. While the next image is on its way the board is out of play: the
-        /// target has already moved, so a tap accepted now would be scored against a picture the
-        /// player has not been shown yet - and enough fast taps would keep cancelling the load the
-        /// board is waiting for. The status label already says why nothing is happening.
-        /// </summary>
         public void OnTapped(Vector2 screenPosition)
         {
+            // The target has already moved, but the board still shows the previous image:
+            // a tap now would be judged against a picture the player has not seen yet.
             if (_rounds.IsLoading)
             {
                 return;
@@ -57,9 +49,15 @@ namespace Game.Core
             }
 
             _hud.SetScore(_score.Increment());
+            BeginNextSearch();
+        }
 
-            // Re-hidden right away rather than when the image lands: the next search is then ready
-            // the instant the board is back in play, and this stays the only place the target moves.
+        /// <summary>
+        /// The only place a new search starts. Moving the target and starting the round always go
+        /// together, so the target never moves without the board getting a new image.
+        /// </summary>
+        private void BeginNextSearch()
+        {
             _board.MoveTarget();
             _rounds.StartNext();
         }

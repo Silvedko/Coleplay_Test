@@ -23,8 +23,11 @@ namespace Game.Composition
         [SerializeField] private HudView _hud;
         [SerializeField] private Camera _camera;
 
-        [Tooltip("Parent for every spawned target. Optional - the pool makes its own if this is empty.")]
-        [SerializeField] private Transform _poolRoot;
+        [Tooltip("Parent for every spawned board object.")]
+        [SerializeField] private Transform _boardRoot;
+
+        [Tooltip("Screen-space canvas the settings window is instantiated under.")]
+        [SerializeField] private RectTransform _uiRoot;
 
         private readonly List<IDisposable> _disposables = new List<IDisposable>();
 
@@ -84,8 +87,10 @@ namespace Game.Composition
                     MissVisibleSeconds = _hud.MissVisibleSeconds,
                 };
 
+                var random = new System.Random();
                 var assets = Track(new AddressablesAssetProvider());
-                var pool = Track(new TargetPool(assets, _config.TargetPrefabKeys, _camera));
+                var layout = new ViewportGridLayout(_camera, random);
+                var spawner = Track(new TargetBoardSpawner(assets, _config.TargetPrefabKeys, layout, random));
                 var images = Track(new ImageRepository(BuildImagePicker(), BuildImageLoader(assets, settings), _config.FallbackKey));
                 var hitTester = new CameraRaycastHitTester(_camera);
                 var score = new ScoreCounter();
@@ -95,15 +100,13 @@ namespace Game.Composition
                 _hud.SetScore(0);
                 _hud.SetStatus(GameStatus.Loading);
 
-                // Both are brought in once per session and released when this component is destroyed.
-                // The fallback doubles as the image the board opens on: it is local, so the first
-                // frame never waits on the network, and it is already loaded for its own sake.
-                var targets = await pool.SpawnAsync(_config.MaxTargets, _config.SpawnDistance, _poolRoot, ct);
+                // The board objects and the fallback texture live until this component is destroyed.
+                // The board opens on the fallback: it is local, so the first frame never waits on the network.
+                var targets = await spawner.SpawnAsync(_config.MaxTargets, _boardRoot, ct);
                 var fallbackTexture = await images.PreloadFallbackAsync(ct);
 
-                // The game itself is composed only once the board exists, so nothing is ever handed
-                // out half-built and no object needs a second initialisation step.
-                var board = new TargetBoard(targets);
+                // Composed only after the board exists, so no object needs a second initialisation step.
+                var board = new TargetBoard(targets, random);
                 board.Dress(fallbackTexture);
 
                 var rounds = Track(new RoundLoop(images, _hud, board.Dress));
@@ -114,22 +117,15 @@ namespace Game.Composition
                 _tap.Tapped += OnPointerTapped;
                 _tap.Enable();
 
-                // The window prefab carries its own SettingsView; instantiate it like any other
-                // Addressable and hand it the live settings. Released with the other handles on teardown.
-                var settingsInstance = Track(await assets.InstantiateAsync(_config.SettingsScreenKey, null, ct));
-                _settingsView = settingsInstance.Value.GetComponentInChildren<SettingsView>(true);
-                if (_settingsView == null)
-                {
-                    throw new InvalidOperationException(
-                        "The settings window prefab has no SettingsView component.");
-                }
+                // Released with the other handles on teardown.
+                var settingsInstance = Track(await assets.InstantiateAsync(_config.SettingsScreenKey, _uiRoot, ct));
+                _settingsView = PrefabContract.RequireOnRoot<SettingsView>(settingsInstance.Value);
 
                 _settingsView.Initialize(settings);
                 _settingsView.OpenChanged += OnSettingsOpen;
                 _hud.BindSettings(settings);
 
-                // No round is started here on purpose: the board opens on the default image, and the
-                // first load is earned by finding the hidden target.
+                // No round is started here: the first image load happens when the player finds the target.
             }
             catch (OperationCanceledException)
             {
@@ -217,6 +213,16 @@ namespace Game.Composition
             if (_camera == null)
             {
                 throw new InvalidOperationException(name + ": the game camera is not assigned.");
+            }
+
+            if (_boardRoot == null)
+            {
+                throw new InvalidOperationException(name + ": the board root is not assigned.");
+            }
+
+            if (_uiRoot == null)
+            {
+                throw new InvalidOperationException(name + ": the UI root canvas is not assigned.");
             }
         }
     }

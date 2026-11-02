@@ -5,21 +5,17 @@ using UnityEngine;
 namespace Game.Core
 {
     /// <summary>
-    /// The board the player searches: a fixed set of objects that all wear the same texture, one of
-    /// which is the hidden target. Looking alike is the point, so the board dresses every object at
-    /// once and never marks the target in any way - the only clue is where it was found last.
-    ///
-    /// The board is handed its objects already spawned and keeps them for the whole session; a round
-    /// changes what they wear and which one is hiding, never how many there are.
+    /// The objects the player searches. All of them wear the same texture, so nothing marks the
+    /// hidden target. The set of objects is fixed for the whole session.
     /// </summary>
-    public sealed class TargetBoard
+    public sealed class TargetBoard : ITargetBoard
     {
         private readonly IReadOnlyList<ITargetView> _targets;
-        private readonly System.Random _random = new System.Random();
+        private readonly System.Random _random;
 
         private int _targetIndex = -1;
 
-        public TargetBoard(IReadOnlyList<ITargetView> targets)
+        public TargetBoard(IReadOnlyList<ITargetView> targets, System.Random random)
         {
             if (targets == null)
             {
@@ -32,9 +28,9 @@ namespace Game.Core
             }
 
             _targets = targets;
+            _random = random ?? throw new ArgumentNullException(nameof(random));
 
-            // Seeded here rather than by the caller: a board without a hidden target is not a state
-            // the rest of the game should ever have to guard against.
+            // A board always has a hidden target, so callers never have to check for "none".
             MoveTarget();
         }
 
@@ -43,7 +39,6 @@ namespace Game.Core
             return ReferenceEquals(view, _targets[_targetIndex]);
         }
 
-        /// <summary>Puts one texture on every object, the hidden target included.</summary>
         public void Dress(Texture2D texture)
         {
             for (var i = 0; i < _targets.Count; i++)
@@ -52,24 +47,17 @@ namespace Game.Core
             }
         }
 
-        /// <summary>Uniform pick among every object except the one hiding the target right now.</summary>
+        /// <summary>Uniform pick among every object except the current target.</summary>
         public void MoveTarget()
         {
-            int index;
-            if (_targets.Count > 1 && _targetIndex >= 0)
+            if (_targets.Count == 1 || _targetIndex < 0)
             {
-                index = _random.Next(_targets.Count - 1);
-                if (index >= _targetIndex)
-                {
-                    index++;
-                }
-            }
-            else
-            {
-                index = _random.Next(_targets.Count);
+                _targetIndex = _random.Next(_targets.Count);
+                return;
             }
 
-            _targetIndex = index;
+            var index = _random.Next(_targets.Count - 1);
+            _targetIndex = index >= _targetIndex ? index + 1 : index;
         }
     }
 }

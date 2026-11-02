@@ -17,16 +17,12 @@ namespace Game.Presentation
         private static readonly int ColorId = Shader.PropertyToID("_Color");
 
         [SerializeField] private MeshRenderer _renderer;
-        [SerializeField] private Collider _collider;
         [SerializeField] private Color _errorColor = new Color(0.85f, 0.19f, 0.15f);
         [SerializeField] private float _errorFlashSeconds = 0.35f;
 
         private MaterialPropertyBlock _block;
         private Color _baseColor = Color.white;
         private CancellationTokenSource _flashCts;
-
-        /// <summary>Handed to the hit tester once the object is on the scene.</summary>
-        public Collider Collider => _collider;
 
         public void SetTexture(Texture2D texture)
         {
@@ -45,12 +41,7 @@ namespace Game.Presentation
         {
             if (_renderer == null)
             {
-                _renderer = GetComponent<MeshRenderer>();
-            }
-
-            if (_collider == null)
-            {
-                _collider = GetComponent<Collider>();
+                throw new InvalidOperationException(name + ": TargetView._renderer is not assigned.");
             }
 
             _block = new MaterialPropertyBlock();
@@ -60,6 +51,12 @@ namespace Game.Presentation
             {
                 _baseColor = material.GetColor(ColorId);
             }
+        }
+
+        /// <summary>Editor-only: fills the reference when the component is added to a prefab.</summary>
+        private void Reset()
+        {
+            _renderer = GetComponent<MeshRenderer>();
         }
 
         private void OnDestroy()

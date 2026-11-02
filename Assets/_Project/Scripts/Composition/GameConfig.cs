@@ -22,12 +22,9 @@ namespace Game.Composition
         [Tooltip("How many objects the board holds. Exactly one of them is the hidden target.")]
         [SerializeField, Min(1)] private int _maxTargets = 6;
 
-        [Tooltip("Distance in front of the camera the board is laid out at.")]
-        [SerializeField, Min(1f)] private float _spawnDistance = 10f;
-
         [Header("Round images")]
         [SerializeField] private AssetLabelReference _imagesLabel;
-        [Tooltip("Substituted when a round image fails to load, and worn by the board until the first target is found.")]
+        [Tooltip("Shown when a round image fails to load, and on the board until the first target is found.")]
         [SerializeField] private AssetReferenceTexture2D _fallbackTexture;
 
         [Header("Settings window")]
@@ -104,9 +101,6 @@ namespace Game.Composition
 
         /// <summary>How many objects the board holds. Exactly one of them is the hidden target.</summary>
         public int MaxTargets => _maxTargets;
-
-        /// <summary>Distance in front of the camera the board is laid out at.</summary>
-        public float SpawnDistance => _spawnDistance;
 
         public AssetKey SettingsScreenKey
         {

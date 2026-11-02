@@ -6,15 +6,11 @@ using UnityEngine;
 namespace Game.Core
 {
     /// <summary>
-    /// Runs one round at a time: asks for the next texture, hands it to whoever draws it, and owns the
-    /// handle until the following texture is on screen.
-    ///
-    /// A new round may still be started while the previous load is in flight - the rules no longer do
-    /// that, but this class does not rely on their restraint. Starting a round cancels the one before
-    /// it, and every await is followed by a fresh read of the token, so a round that was replaced can
-    /// never draw over the one that replaced it.
+    /// Runs one round at a time: loads the next texture, hands it to <c>draw</c> and owns its handle
+    /// until the next texture is shown. Starting a round cancels the previous one, so a replaced
+    /// round can never draw over a newer one.
     /// </summary>
-    public sealed class RoundLoop : IDisposable
+    public sealed class RoundLoop : IRoundLoop, IDisposable
     {
         private readonly IImageSource _images;
         private readonly IHudView _hud;
@@ -24,20 +20,9 @@ namespace Game.Core
 
         private CancellationTokenSource _roundCts;
         private IAssetHandle<Texture2D> _current;
-        private bool _loading;
         private bool _disposed;
 
-        /// <summary>
-        /// True from the moment a round starts until its image is on the board or its failure is
-        /// handled. The rules read this to keep the board out of play while it is not showing what
-        /// the player is meant to be searching.
-        /// </summary>
-        public bool IsLoading => _loading;
-
-        /// <param name="draw">
-        /// Where a loaded texture goes. A delegate rather than an interface because drawing is the
-        /// whole of what this class needs from the board - and all it should be able to reach.
-        /// </param>
+        /// <param name="draw">Receives every loaded texture. A delegate, because drawing is all this class needs.</param>
         public RoundLoop(IImageSource images, IHudView hud, Action<Texture2D> draw)
         {
             _images = images ?? throw new ArgumentNullException(nameof(images));
@@ -45,7 +30,8 @@ namespace Game.Core
             _draw = draw ?? throw new ArgumentNullException(nameof(draw));
         }
 
-        /// <summary>Cancels the round in flight, if any, and starts a new one.</summary>
+        public bool IsLoading { get; private set; }
+
         public void StartNext()
         {
             if (_disposed)
@@ -53,7 +39,7 @@ namespace Game.Core
                 return;
             }
 
-            _loading = true;
+            IsLoading = true;
 
             ReplaceRoundToken();
             RunRoundAsync(_roundCts.Token).Forget();
@@ -68,8 +54,7 @@ namespace Game.Core
             {
                 image = await _images.NextAsync(ct);
 
-                // Re-read rather than trusted from before the await: a load that finishes in the same
-                // frame it is replaced resumes on a continuation queued before the cancellation landed.
+                // The continuation may have been queued before the round was cancelled.
                 ct.ThrowIfCancellationRequested();
 
                 _draw(image.Handle.Value);
@@ -82,9 +67,7 @@ namespace Game.Core
             }
             catch (OperationCanceledException)
             {
-                // Normal path: a newer round took over, either while the load was running - the
-                // provider released the handle on its way out - or just after it produced one, which
-                // makes the handle ours to drop.
+                // A newer round took over. If the load had already produced a handle, it is ours to release.
                 image.Handle?.Dispose();
             }
             catch (Exception exception)
@@ -100,20 +83,18 @@ namespace Game.Core
             }
             finally
             {
-                // Only the newest round may hand the board back to the player: a round that was
-                // replaced is finishing into a game that has already moved on.
+                // A replaced round must not unlock the board for the round that replaced it.
                 if (!ct.IsCancellationRequested)
                 {
-                    _loading = false;
+                    IsLoading = false;
                 }
             }
         }
 
         /// <summary>
-        /// Cancel, then dispose right away - safe because <see cref="IImageSource"/> contracts
-        /// implementations to observe cancellation by polling, never by registering a callback that
-        /// could fire after the source is gone. Disposing here also matters on its own: this is a
-        /// linked source, and skipping it would leak a registration on _lifetime for every round played.
+        /// Cancel and dispose right away. Safe because <see cref="IImageSource"/> implementations
+        /// observe cancellation by polling, not by registering callbacks. Disposing is required:
+        /// the source is linked to <c>_lifetime</c> and would otherwise leak a registration per round.
         /// </summary>
         private void ReplaceRoundToken()
         {
