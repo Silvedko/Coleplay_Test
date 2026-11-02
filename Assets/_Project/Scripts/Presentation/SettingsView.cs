@@ -2,9 +2,7 @@ using System;
 using Game.Core;
 using TMPro;
 using UnityEngine;
-using UnityEngine.EventSystems;
 using UnityEngine.Events;
-using UnityEngine.InputSystem.UI;
 using UnityEngine.UI;
 
 namespace Game.Presentation
@@ -50,7 +48,6 @@ namespace Game.Presentation
         private GameSettings _settings;
         private bool _built;
         private bool _syncing;
-        private GameObject _createdEventSystem;
 
         private int _defaultDelay;
         private int _defaultFail;
@@ -82,9 +79,6 @@ namespace Game.Presentation
             _defaultDelay = settings.ArtificialDelayMilliseconds;
             _defaultFail = settings.ForceFailureEveryNthRound;
             _defaultMiss = settings.MissVisibleSeconds;
-
-            EnsureCanvas();
-            EnsureEventSystem();
 
             BindSlider(_delaySlider, 0f, GameSettings.MaxArtificialDelayMilliseconds, true,
                 v => _settings.ArtificialDelayMilliseconds = Mathf.RoundToInt(v));
@@ -120,11 +114,6 @@ namespace Game.Presentation
             if (_settings != null)
             {
                 _settings.Changed -= SyncFromSettings;
-            }
-
-            if (_createdEventSystem != null)
-            {
-                Destroy(_createdEventSystem);
             }
         }
 
@@ -197,43 +186,6 @@ namespace Game.Presentation
             _settings.ArtificialDelayMilliseconds = _defaultDelay;
             _settings.ForceFailureEveryNthRound = _defaultFail;
             _settings.MissVisibleSeconds = _defaultMiss;
-        }
-
-        /// <summary>
-        /// Safety net: the prefab is instantiated at the scene root with no Canvas ancestor, so give
-        /// it its own overlay canvas. Harmless no-op when the prefab (or a parent) already has one.
-        /// </summary>
-        private void EnsureCanvas()
-        {
-            if (GetComponentInParent<Canvas>() != null)
-            {
-                return;
-            }
-
-            var canvas = gameObject.AddComponent<Canvas>();
-            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-            canvas.sortingOrder = 100;
-
-            var scaler = gameObject.AddComponent<CanvasScaler>();
-            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-            scaler.referenceResolution = new Vector2(1920f, 1080f);
-            scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
-            scaler.matchWidthOrHeight = 0f;
-
-            gameObject.AddComponent<GraphicRaycaster>();
-        }
-
-        /// <summary>
-        /// Safety net: the scene ships without an EventSystem, so without one the buttons would sit
-        /// there dead. Harmless no-op when the prefab or scene already provides one.
-        /// </summary>
-        private void EnsureEventSystem()
-        {
-            if (FindFirstObjectByType<EventSystem>() == null)
-            {
-                _createdEventSystem = new GameObject(
-                    "EventSystem", typeof(EventSystem), typeof(InputSystemUIInputModule));
-            }
         }
 
         private void Require(UnityEngine.Object field, string fieldName)

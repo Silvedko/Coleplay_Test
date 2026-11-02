@@ -29,14 +29,32 @@ namespace Game.Infrastructure
             _fallbackKey = fallbackKey;
         }
 
-        public async UniTask PreloadFallbackAsync(CancellationToken ct)
+        /// <summary>
+        /// Loads the fallback once and returns it. The composition root also uses it as the
+        /// board's first image, so the texture has a single handle and a single owner.
+        /// </summary>
+        public async UniTask<Texture2D> PreloadFallbackAsync(CancellationToken ct)
         {
-            if (_fallback != null || _disposed)
+            if (_disposed)
             {
-                return;
+                throw new ObjectDisposedException(nameof(ImageRepository));
             }
 
-            _fallback = await _loader.LoadAsync<Texture2D>(_fallbackKey, ct);
+            if (_fallback == null)
+            {
+                var loaded = await _loader.LoadAsync<Texture2D>(_fallbackKey, ct);
+
+                // Disposed while loading: nobody would release this handle later.
+                if (_disposed)
+                {
+                    loaded.Dispose();
+                    throw new ObjectDisposedException(nameof(ImageRepository));
+                }
+
+                _fallback = loaded;
+            }
+
+            return _fallback.Value;
         }
 
         public async UniTask<RoundImage> NextAsync(CancellationToken ct)

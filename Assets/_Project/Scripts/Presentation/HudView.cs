@@ -11,7 +11,7 @@ namespace Game.Presentation
     public sealed class HudView : MonoBehaviour, IHudView
     {
         private const string LoadingText = "Loading image...";
-        private const string ReadyText = "Tap the object!";
+        private const string ReadyText = "Find the hidden object!";
         private const string FallbackText = "Download failed - showing the fallback image";
         private const string MissText = "Missed!";
         private const string ScoreFormat = "Score: {0}";

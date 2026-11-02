@@ -5,13 +5,11 @@ using UnityEngine;
 namespace Game.Infrastructure
 {
     /// <summary>
-    /// Decides whether a tap landed on the target object.
+    /// Reports which object a tap landed on by raycasting the interactable layer.
     ///
-    /// Two paths, in this order:
-    /// 1. The target collider is known - ask it directly. No scene query, no layer configuration,
-    ///    and nothing else on the scene can be mistaken for the target.
-    /// 2. It is not known yet - raycast the interactable layer instead, so a tap is still answered
-    ///    correctly during the window before the object has been spawned and handed over.
+    /// The view is fetched through the interface rather than a concrete component, so Infrastructure
+    /// never has to reference Presentation - Unity resolves GetComponentInParent against interfaces
+    /// just as well as against classes.
     /// </summary>
     public sealed class CameraRaycastHitTester : ITargetHitTester
     {
@@ -34,11 +32,10 @@ namespace Game.Infrastructure
             _layerMask = layerMask;
         }
 
-        /// <summary>Set once the target object has been spawned.</summary>
-        public Collider Target { get; set; }
-
-        public bool IsHit(Vector2 screenPosition)
+        public bool TryGetTarget(Vector2 screenPosition, out ITargetView target)
         {
+            target = null;
+
             if (_camera == null)
             {
                 return false;
@@ -46,12 +43,14 @@ namespace Game.Infrastructure
 
             var ray = _camera.ScreenPointToRay(screenPosition);
 
-            if (Target != null)
+            if (!Physics.Raycast(ray, out var hit, MaxDistance, _layerMask, QueryTriggerInteraction.Ignore))
             {
-                return Target.Raycast(ray, out _, MaxDistance);
+                return false;
             }
 
-            return Physics.Raycast(ray, out _, MaxDistance, _layerMask, QueryTriggerInteraction.Ignore);
+            // InParent, not on the collider itself: the prefab is free to keep the collider on a child.
+            target = hit.collider.GetComponentInParent<ITargetView>();
+            return target != null;
         }
 
         private static int ResolveDefaultLayerMask()

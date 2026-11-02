@@ -1,0 +1,8 @@
+﻿<Solution>
+  <Project Path="Game.Core.csproj" />
+  <Project Path="Game.Tests.EditMode.csproj" />
+  <Project Path="Game.Infrastructure.csproj" />
+  <Project Path="Game.Composition.csproj" />
+  <Project Path="Game.Editor.csproj" />
+  <Project Path="Game.Presentation.csproj" />
+</Solution>
